@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LightAnalyzer - 轻量数据分析工具</title>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      spacing: { '3.5': '0.875rem', '4.5': '1.125rem' },
+      fontFamily: {
+        sans: ['"Inter"','"SF Pro Display"','"PingFang SC"','"Microsoft YaHei"','system-ui','sans-serif'],
+      },
+      colors: {
+        surface: { 50:'#f8f9fa', 100:'#f1f3f5', 200:'#e9ecef', 300:'#dee2e6' },
+      }
+    }
+  }
+}
+</script>
+
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.js"></script>
+
+<!-- SheetJS -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- html2canvas (renders report DOM to canvas — preserves CJK text) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- Application Styles -->
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-white text-gray-900 min-h-screen antialiased">
+
+<!-- ========== NAVIGATION ========== -->
+<nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/60">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16">
+
+      <!-- Logo + Nav Links -->
+      <div class="flex items-center gap-8">
+        <div class="flex items-center gap-2.5 cursor-pointer" onclick="showView('home')">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <i data-lucide="bar-chart-3" class="w-4.5 h-4.5 text-white"></i>
+          </div>
+          <span class="font-semibold text-lg tracking-tight text-gray-900" data-i18n="app.name">LightAnalyzer</span>
+        </div>
+        <div class="hidden sm:flex items-center gap-1">
+          <button onclick="showView('home')" id="nav-home"
+            class="px-3.5 py-2 rounded-lg text-sm font-medium transition-colors bg-indigo-50 text-indigo-700"
+            data-i18n="nav.home">首页</button>
+          <button onclick="showView('analysis')" id="nav-analysis"
+            class="px-3.5 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            data-i18n="nav.analysis">数据分析</button>
+        </div>
+      </div>
+
+      <!-- Language Switcher -->
+      <div class="relative" id="lang-switcher">
+        <button onclick="toggleLangMenu()"
+          class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+          <i data-lucide="globe" class="w-4 h-4"></i>
+          <span id="current-lang-label">简体中文</span>
+          <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+        </button>
+        <div id="lang-menu"
+          class="hidden absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-50">
+          <button onclick="setLang('zh-CN')" data-lang="zh-CN"
+            class="lang-btn active-lang w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between">
+            <span>简体中文</span>
+            <i data-lucide="check" class="w-4 h-4 text-indigo-600 check-mark"></i>
+          </button>
+          <button onclick="setLang('zh-TW')" data-lang="zh-TW"
+            class="lang-btn w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between">
+            <span>繁體中文</span>
+            <i data-lucide="check" class="w-4 h-4 text-indigo-600 check-mark hidden"></i>
+          </button>
+          <button onclick="setLang('en')" data-lang="en"
+            class="lang-btn w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between">
+            <span>English</span>
+            <i data-lucide="check" class="w-4 h-4 text-indigo-600 check-mark hidden"></i>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</nav>
+
+<!-- ========== HOME VIEW ========== -->
+<div id="view-home">
+
+  <!-- Hero -->
+  <section class="hero-gradient text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
+      <div class="max-w-3xl">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 text-sm font-medium mb-6">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span data-i18n="hero.badge">轻量 · 快速 · 隐私优先</span>
+        </div>
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight mb-6" data-i18n="hero.title">几秒钟内，从数据到洞察</h1>
+        <p class="text-lg sm:text-xl text-white/80 leading-relaxed mb-10 max-w-2xl" data-i18n="hero.subtitle"></p>
+        <div class="flex flex-wrap gap-4">
+          <button onclick="showView('analysis')" class="inline-flex items-center gap-2 px-6 py-3.5 bg-white text-indigo-700 rounded-xl font-semibold text-base hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl">
+            <span data-i18n="hero.cta">开始分析数据</span>
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+          </button>
+          <button onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})" class="inline-flex items-center gap-2 px-6 py-3.5 bg-white/10 text-white rounded-xl font-semibold text-base hover:bg-white/20 transition-all border border-white/20">
+            <span data-i18n="hero.learn">了解更多</span>
+            <i data-lucide="chevron-down" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="py-20 lg:py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-14">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900 mb-4" data-i18n="features.title">核心功能</h2>
+        <p class="text-lg text-gray-500 max-w-2xl mx-auto" data-i18n="features.subtitle">专为快速数据分析而设计，无需安装任何软件</p>
+      </div>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="fade-in-up bg-white rounded-2xl p-8 border border-gray-200/80 hover:border-indigo-200 hover:shadow-lg transition-all">
+          <div class="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mb-5"><i data-lucide="upload-cloud" class="w-6 h-6 text-indigo-600"></i></div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2" data-i18n="features.f1.title">拖拽上传</h3>
+          <p class="text-gray-500 leading-relaxed" data-i18n="features.f1.desc"></p>
+        </div>
+        <div class="fade-in-up bg-white rounded-2xl p-8 border border-gray-200/80 hover:border-indigo-200 hover:shadow-lg transition-all">
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-5"><i data-lucide="calculator" class="w-6 h-6 text-emerald-600"></i></div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2" data-i18n="features.f2.title">即时统计分析</h3>
+          <p class="text-gray-500 leading-relaxed" data-i18n="features.f2.desc"></p>
+        </div>
+        <div class="fade-in-up bg-white rounded-2xl p-8 border border-gray-200/80 hover:border-indigo-200 hover:shadow-lg transition-all">
+          <div class="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center mb-5"><i data-lucide="file-down" class="w-6 h-6 text-violet-600"></i></div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2" data-i18n="features.f3.title">导出 PDF 报告</h3>
+          <p class="text-gray-500 leading-relaxed" data-i18n="features.f3.desc"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How-to -->
+  <section class="py-20 lg:py-24 bg-gray-50/50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-14">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900 mb-4" data-i18n="howto.title">如何使用</h2>
+        <p class="text-lg text-gray-500 max-w-2xl mx-auto" data-i18n="howto.subtitle">只需简单四步，即可完成数据分析</p>
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-2xl p-6 border border-gray-200/60">
+          <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold mb-4">1</div>
+          <h4 class="font-semibold text-gray-900 mb-1.5" data-i18n="howto.s1.title">上传文件</h4>
+          <p class="text-sm text-gray-500" data-i18n="howto.s1.desc"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-6 border border-gray-200/60">
+          <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold mb-4">2</div>
+          <h4 class="font-semibold text-gray-900 mb-1.5" data-i18n="howto.s2.title">选择列</h4>
+          <p class="text-sm text-gray-500" data-i18n="howto.s2.desc"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-6 border border-gray-200/60">
+          <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold mb-4">3</div>
+          <h4 class="font-semibold text-gray-900 mb-1.5" data-i18n="howto.s3.title">查看结果</h4>
+          <p class="text-sm text-gray-500" data-i18n="howto.s3.desc"></p>
+        </div>
+        <div class="bg-white rounded-2xl p-6 border border-gray-200/60">
+          <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold mb-4">4</div>
+          <h4 class="font-semibold text-gray-900 mb-1.5" data-i18n="howto.s4.title">导出报告</h4>
+          <p class="text-sm text-gray-500" data-i18n="howto.s4.desc"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="py-16 bg-white">
+    <div class="max-w-3xl mx-auto text-center px-4">
+      <div class="bg-indigo-50 rounded-3xl p-10 sm:p-14">
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-3" data-i18n="cta.title">准备好分析您的数据了吗？</h2>
+        <p class="text-gray-600 mb-8" data-i18n="cta.subtitle">完全免费，无需注册，数据不上传服务器</p>
+        <button onclick="showView('analysis')" class="inline-flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-xl font-semibold text-base hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl">
+          <span data-i18n="cta.button">开始使用</span>
+          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-200 py-8">
+    <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-400">
+      <p data-i18n="footer.text">LightAnalyzer - 轻量数据分析工具 · 所有数据仅在浏览器本地处理</p>
+    </div>
+  </footer>
+</div>
+
+<!-- ========== ANALYSIS VIEW ========== -->
+<div id="view-analysis" class="view-hidden">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+    <!-- Upload Zone -->
+    <div id="upload-section">
+      <div id="drop-zone"
+        class="relative border-2 border-dashed border-gray-300 rounded-2xl p-12 sm:p-16 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all"
+        onclick="document.getElementById('file-input').click()">
+        <div class="max-w-sm mx-auto">
+          <div class="w-16 h-16 mx-auto mb-5 rounded-2xl bg-indigo-50 flex items-center justify-center">
+            <i data-lucide="upload-cloud" class="w-8 h-8 text-indigo-500"></i>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2" data-i18n="upload.title">拖拽文件到此处</h3>
+          <p class="text-sm text-gray-500 mb-4" data-i18n="upload.hint">支持 .xlsx 和 .csv 格式</p>
+          <span class="inline-block px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors" data-i18n="upload.browse">浏览文件</span>
+        </div>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileSelect(event)" />
+      </div>
+      <div id="file-info" class="hidden mt-4 flex items-center gap-3 px-4 py-3 bg-emerald-50 text-emerald-800 rounded-xl text-sm font-medium">
+        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+        <span id="file-name"></span>
+        <span class="text-emerald-600">·</span>
+        <span id="file-rows"></span>
+        <button onclick="resetAnalysis()" class="ml-auto text-emerald-600 hover:text-emerald-800"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+    </div>
+
+    <!-- Analysis Section -->
+    <div id="analysis-section" class="hidden mt-8 space-y-8">
+
+      <!-- Analysis Mode + Column/Row Selector -->
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-semibold text-gray-700" data-i18n="analysis.mode">分析模式：</span>
+          <div class="rc-segmented">
+            <button onclick="setAnalysisMode('column')" id="mode-col" class="rc-btn rc-active" data-i18n="analysis.byColumn">按列</button>
+            <button onclick="setAnalysisMode('row')"    id="mode-row" class="rc-btn" data-i18n="analysis.byRow">按行</button>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <label class="text-sm font-semibold text-gray-700" id="selector-label" data-i18n="analysis.selectCol">选择分析列：</label>
+          <select id="column-select" onchange="onSelectionChange()" class="px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all min-w-[200px]"></select>
+          <span id="col-type-badge" class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600"></span>
+        </div>
+      </div>
+
+      <!-- Statistics Cards -->
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="stat-card bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center"><i data-lucide="hash" class="w-5 h-5 text-blue-600"></i></div>
+            <span class="text-sm font-semibold text-gray-500" data-i18n="stat.mean">平均值</span>
+          </div>
+          <p id="stat-mean" class="text-2xl font-bold text-gray-900">--</p>
+          <p class="text-xs text-gray-400 mt-1" data-i18n="stat.meanDesc">所有数值的算术平均</p>
+        </div>
+        <div class="stat-card bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center"><i data-lucide="align-center" class="w-5 h-5 text-emerald-600"></i></div>
+            <span class="text-sm font-semibold text-gray-500" data-i18n="stat.median">中位数</span>
+          </div>
+          <p id="stat-median" class="text-2xl font-bold text-gray-900">--</p>
+          <p class="text-xs text-gray-400 mt-1" data-i18n="stat.medianDesc">排序后居中的数值</p>
+        </div>
+        <div class="stat-card bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center"><i data-lucide="star" class="w-5 h-5 text-violet-600"></i></div>
+            <span class="text-sm font-semibold text-gray-500" data-i18n="stat.mode">众数</span>
+          </div>
+          <p id="stat-mode" class="text-2xl font-bold text-gray-900">--</p>
+          <p class="text-xs text-gray-400 mt-1" data-i18n="stat.modeDesc">出现频率最高的值</p>
+        </div>
+        <div class="stat-card bg-white rounded-2xl p-6 border border-gray-200/80 shadow-sm">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center"><i data-lucide="activity" class="w-5 h-5 text-amber-600"></i></div>
+            <span class="text-sm font-semibold text-gray-500" data-i18n="stat.stddev">标准差</span>
+          </div>
+          <p id="stat-stddev" class="text-2xl font-bold text-gray-900">--</p>
+          <p class="text-xs text-gray-400 mt-1" data-i18n="stat.stddevDesc">数据离散程度的度量</p>
+        </div>
+      </div>
+
+      <!-- Extra stats -->
+      <div class="grid sm:grid-cols-3 gap-5">
+        <div class="bg-white rounded-xl p-5 border border-gray-200/80">
+          <span class="text-xs font-medium text-gray-500" data-i18n="stat.count">数据量</span>
+          <p id="stat-count" class="text-xl font-bold text-gray-900 mt-1">--</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200/80">
+          <span class="text-xs font-medium text-gray-500" data-i18n="stat.min">最小值</span>
+          <p id="stat-min" class="text-xl font-bold text-gray-900 mt-1">--</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200/80">
+          <span class="text-xs font-medium text-gray-500" data-i18n="stat.max">最大值</span>
+          <p id="stat-max" class="text-xl font-bold text-gray-900 mt-1">--</p>
+        </div>
+      </div>
+
+      <!-- Row Count Selector -->
+      <div class="flex flex-wrap items-center gap-4">
+        <span class="text-sm font-semibold text-gray-700" data-i18n="display.rows">显示行数：</span>
+        <div class="rc-segmented">
+          <button onclick="setRowCount(10)"  id="rc-10"  class="rc-btn">10</button>
+          <button onclick="setRowCount(50)"  id="rc-50"  class="rc-btn">50</button>
+          <button onclick="setRowCount(100)" id="rc-100" class="rc-btn rc-active">100</button>
+          <button onclick="setRowCount(500)" id="rc-500" class="rc-btn">500</button>
+          <button onclick="setRowCount(-1)"  id="rc-all" class="rc-btn" data-i18n="display.all">全部</button>
+        </div>
+        <input type="number" id="custom-row-count" min="1" class="rc-custom"
+          onchange="onCustomRowCount()" onkeydown="if(event.key==='Enter')onCustomRowCount()" />
+      </div>
+
+      <!-- Export Buttons -->
+      <div class="space-y-4">
+        <div class="flex flex-wrap items-end gap-4">
+          <!-- Single export -->
+          <div class="flex flex-col gap-1.5">
+            <button id="export-btn" onclick="exportPDF()" class="inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg">
+              <i data-lucide="file-down" class="w-4.5 h-4.5"></i>
+              <span data-i18n="export.single">导出选中分析</span>
+            </button>
+            <span class="text-xs text-gray-400 pl-1" data-i18n="export.singleDesc">仅当前所选列/行的统计结果与数据表</span>
+          </div>
+          <!-- Batch export -->
+          <div class="flex flex-col gap-1.5">
+            <button id="export-batch-btn" onclick="exportBatchPDF()" class="inline-flex items-center gap-2 px-5 py-3 bg-white text-indigo-700 rounded-xl font-semibold text-sm border-2 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-400 transition-all shadow-sm">
+              <i data-lucide="layers" class="w-4.5 h-4.5"></i>
+              <span data-i18n="export.batch">导出全部统计</span>
+            </button>
+            <span class="text-xs text-gray-400 pl-1" data-i18n="export.batchDesc">所有列/行的统计摘要与完整数据表</span>
+          </div>
+        </div>
+        <button onclick="resetAnalysis()" class="inline-flex items-center gap-2 px-5 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-all">
+          <i data-lucide="rotate-ccw" class="w-4.5 h-4.5"></i>
+          <span data-i18n="export.reset">重新上传</span>
+        </button>
+      </div>
+
+      <!-- Data Table -->
+      <div class="bg-white rounded-2xl border border-gray-200/80 overflow-hidden shadow-sm">
+        <div class="px-6 py-4 border-b border-gray-200/60 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 flex items-center gap-2">
+            <i data-lucide="table" class="w-4.5 h-4.5 text-gray-500"></i>
+            <span data-i18n="table.title">数据预览</span>
+          </h3>
+          <span id="table-info" class="text-xs text-gray-500"></span>
+        </div>
+        <div class="overflow-auto max-h-96" id="table-container">
+          <table class="w-full text-sm" id="data-table">
+            <thead class="bg-gray-50 border-b border-gray-200"></thead>
+            <tbody class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Application Logic -->
+<script src="app.js"></script>
+</body>
+</html>
